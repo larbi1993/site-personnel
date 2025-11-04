@@ -46,3 +46,19 @@ footer {
     background-color: #007bff;
     color: white;
 }
+
+.cv-button {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #28a745; /* vert moderne */
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+    margin-top: 10px;
+}
+
+.cv-button:hover {
+    background-color: #218838;
+}
