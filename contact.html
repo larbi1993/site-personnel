@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Me contacté</title>
-    <link rel="stylesheet" href="css/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contact</title>
+<link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <header>
-        <h1>Vous pouver me contacter via : </h1>
+<header>
+        <h1>Contactez-moi</h1>
         <nav>
             <ul>
                 <li><a href="index.html">Accueil</a></li>
@@ -18,20 +18,49 @@
             </ul>
         </nav>
     </header>
-    <main>
-    <section>
-        <h2>Contactez-moi</h2>
-        <form action="#" method="post">
-            <input type="text" name="nom" placeholder="Votre nom" required>
-            <input type="email" name="email" placeholder="Votre email" required>
-            <textarea name="message" placeholder="Votre message" required></textarea>
-            <button type="submit">Envoyer</button>
-        </form>
-    </section>
+<main>
+  <section>
+    <form id="contact-form">
+      <input type="text" name="nom" placeholder="Votre nom" required>
+      <input type="email" name="email" placeholder="Votre email" required>
+      <textarea name="message" placeholder="Votre message" required></textarea>
+      <button type="submit">Envoyer</button>
+    </form>
+  </section>
 </main>
+
+<script>
+const form = document.getElementById("contact-form");
+
+form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const data = Object.fromEntries(new FormData(form).entries());
+
+    try {
+        const res = await fetch("/contact", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(data)
+        });
+
+        if(res.ok){
+            alert("Merci ! Votre message a été reçu.");
+            form.reset();
+        } else {
+            alert("Erreur lors de l'envoi du message.");
+        }
+    } catch(err){
+        console.error(err);
+        alert("Erreur réseau.");
+    }
+});
+</script>
+
+
 
 <footer>
         <p>&copy; 2025 Larbi Chaouch</p>
-</footer>
+    </footer>
 </body>
 </html>

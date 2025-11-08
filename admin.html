@@ -1,0 +1,143 @@
+// server.js
+const express = require("express");
+const bodyParser = require("body-parser");
+const path = require("path");
+const sqlite3 = require("sqlite3").verbose();
+const session = require("express-session");
+const nodemailer = require("nodemailer");
+
+const app = express();
+const PORT = 3000;
+
+// Middleware
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname)));
+
+// Session admin
+app.use(session({
+  secret: "mon_secret_admin",
+  resave: false,
+  saveUninitialized: true
+}));
+
+// Connexion à SQLite
+const db = new sqlite3.Database(path.join(__dirname, "data/database.db"), (err) => {
+  if (err) return console.error(err.message);
+  console.log("Connexion à SQLite réussie !");
+});
+
+// Création table messages si elle n'existe pas
+db.run(`
+  CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nom TEXT,
+    email TEXT,
+    message TEXT,
+    date_sent DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+// --- Transporteur email (Ethereal pour tests) ---
+let transporter;
+(async () => {
+  const testAccount = await nodemailer.createTestAccount();
+
+  transporter = nodemailer.createTransport({
+    host: "smtp.ethereal.email",
+    port: 587,
+    secure: false, // TLS
+    auth: {
+      user: testAccount.user,
+      pass: testAccount.pass
+    }
+  });
+
+  console.log("Transporteur email configuré avec Ethereal :");
+  console.log("User:", testAccount.user);
+  console.log("Pass:", testAccount.pass);
+  console.log("Web:", "https://ethereal.email/messages");
+})();
+
+// --- Login admin ---
+const ADMIN_USER = "larbi";
+const ADMIN_PASS = "larab56789";
+
+app.post("/admin/login", (req, res) => {
+  const { username, password } = req.body;
+  if (username === ADMIN_USER && password === ADMIN_PASS) {
+    req.session.admin = true;
+    res.sendStatus(200);
+  } else {
+    res.sendStatus(401);
+  }
+});
+
+// Middleware pour routes admin
+function checkAdmin(req, res, next) {
+  if (req.session.admin) next();
+  else res.status(403).send("Accès interdit");
+}
+
+// Vérifier session admin
+app.get("/admin/check-session", (req, res) => {
+  res.json({ loggedIn: !!req.session.admin });
+});
+
+// --- Recevoir un message ---
+app.post("/contact", (req, res) => {
+  const { nom, email, message } = req.body;
+  db.run(
+    "INSERT INTO messages(nom,email,message) VALUES(?,?,?)",
+    [nom, email, message],
+    function(err) {
+      if (err) return res.status(500).send("Erreur serveur");
+      console.log("Nouveau message reçu :", { nom, email, message });
+      res.send("Merci ! Votre message a été reçu.");
+    }
+  );
+});
+
+// --- Récupérer messages ---
+app.get("/admin/messages", checkAdmin, (req, res) => {
+  db.all("SELECT * FROM messages ORDER BY date_sent DESC", [], (err, rows) => {
+    if (err) return res.status(500).json({ error: "Erreur serveur" });
+    res.json(rows);
+  });
+});
+
+// --- Supprimer message ---
+app.delete("/admin/messages/:id", checkAdmin, (req, res) => {
+  const id = parseInt(req.params.id);
+  db.run("DELETE FROM messages WHERE id=?", [id], function(err) {
+    if (err) return res.status(500).send("Erreur serveur");
+    res.send("Message supprimé");
+  });
+});
+
+// --- Répondre par email ---
+app.post("/admin/reply", checkAdmin, async (req, res) => {
+  const { email, replyMessage } = req.body;
+
+  if (!transporter) return res.status(500).send("Transporteur email non prêt");
+
+  try {
+    const info = await transporter.sendMail({
+      from: '"Admin Portfolio" <no-reply@example.com>',
+      to: email,
+      subject: "Réponse à votre message",
+      text: replyMessage
+    });
+
+    console.log("Email envoyé ! Voir sur Ethereal :", nodemailer.getTestMessageUrl(info));
+    res.send("Email envoyé ! Vérifie la console pour le lien Ethereal.");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Erreur lors de l'envoi de l'email.");
+  }
+});
+
+// --- Démarrage serveur ---
+app.listen(PORT, () => {
+  console.log(`Serveur démarré sur http://localhost:${PORT}`);
+});
